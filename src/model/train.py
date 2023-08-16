@@ -5,10 +5,12 @@ import os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+import mlflow
 
 # Define functions
 def main(args):
-    # TO DO: enable autologging
+    # Enable autologging
+    mlflow.autolog()
 
     # Read data
     df = get_csvs_df(args.training_data)
@@ -38,8 +40,23 @@ def split_data(df):
     return X_train, X_test, y_train, y_test
 
 def train_model(reg_rate, X_train, X_test, y_train, y_test):
-    # Train model
-    LogisticRegression(C=1/reg_rate, solver="liblinear").fit(X_train, y_train)
+    # Start an MLflow run
+    with mlflow.start_run() as run:
+        # Log parameters
+        mlflow.log_param("reg_rate", reg_rate)
+
+        # Train model
+        model = LogisticRegression(C=1/reg_rate, solver="liblinear")
+        model.fit(X_train, y_train)
+
+        # Log metrics
+        train_score = model.score(X_train, y_train)
+        test_score = model.score(X_test, y_test)
+        mlflow.log_metric("train_score", train_score)
+        mlflow.log_metric("test_score", test_score)
+
+        # Save the model
+        mlflow.sklearn.save_model(model, "model")
 
 def parse_args():
     # Setup arg parser
@@ -63,6 +80,9 @@ if __name__ == "__main__":
 
     # Parse args
     args = parse_args()
+
+    # Initialize MLflow
+    mlflow.set_tracking_uri("your_mlflow_tracking_uri")
 
     # Run main function
     main(args)
